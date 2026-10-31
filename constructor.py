@@ -1,5 +1,5 @@
 from pathlib import Path
-from sys import exit
+import subprocess
 from jinja2 import Environment, FileSystemLoader, exceptions
 import frontmatter
 
@@ -43,6 +43,20 @@ def fill_template(template_folder, template_name, data):
         raise RuntimeError(
             f"error: there was a syntax error in {template_folder}/{template_name}\n{e.message}"
         )
+
+
+def compile_to_pdf(latex_string, pdf_name):
+    try:
+        subprocess.run(
+            ["pdflatex", f"-jobname={pdf_name}", "-interaction=nonstopmode"],
+            input=latex_string.encode(),
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"pdflatex failed:\n{e.stdout.decode('utf-8')}")
+    for extra in [".aux", ".log", ".out"]:
+        Path(f"{pdf_name}{extra}").unlink(missing_ok=True)
 
 
 def main():
