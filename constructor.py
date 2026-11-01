@@ -5,6 +5,19 @@ import frontmatter
 from jinja2 import Environment, FileSystemLoader, exceptions
 
 
+def sanitize_latex(text):
+    chars = {
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+    }
+    for char, replacement in chars.items():
+        text = text.replace(char, replacement)
+    return text
+
+
 def parse(folder):
     projects = {}
     for file in Path(folder).glob("*.md"):
@@ -16,7 +29,13 @@ def parse(folder):
             project["start_date"] = post["start_date"]
             project["end_date"] = post["end_date"]
             project["tags"] = post["tags"]
-            project["content"] = post.content
+            raw_lines = post.content.splitlines()
+            bullets = [
+                sanitize_latex(line.lstrip("-*+ ").strip())
+                for line in raw_lines
+                if line.strip()
+            ]
+            project["bullets"] = bullets
             projects[name] = project
         except KeyError as e:
             print(f"File {file} is missing required field: {e}")
@@ -33,10 +52,11 @@ def choose_projects(projects):
     print("The following projects were found:")
     for i, project in enumerate(projects, start=1):
         print(f"  [{i}] {project}")
+    print(
+        "Input the number corresponding to the project you want to add to your resume or type 'q' if you have selected enough projects. If you would like to see the projects found again, type 'info'\n"
+    )
     while True:
-        sel = input(
-            "Input the number corresponding to the project you want to add to your resume or type 'q' if you have selected enough projects. If you would like to see the projects found again, type 'info'\n"
-        )
+        sel = input()
         if sel.lower() == "q":
             break
         if sel.lower() == "info":
@@ -89,22 +109,34 @@ def fill_template(template_folder, template_name, data):
 
 
 def compile_to_pdf(latex_string, pdf_name):
+    tex_path = Path(f"{pdf_name}.tex")
+    tex_path.write_text(latex_string, encoding="utf-8")
     try:
         subprocess.run(
-            ["pdflatex", f"-jobname={pdf_name}", "-interaction=nonstopmode"],
-            input=latex_string.encode(),
+            [
+                "lualatex",
+                f"-jobname={pdf_name}",
+                "-interaction=nonstopmode",
+                tex_path.name,
+            ],
             check=True,
             capture_output=True,
         )
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"pdflatex failed:\n{e.stdout.decode('utf-8')}")
-    for extra in [".aux", ".log", ".out"]:
-        Path(f"{pdf_name}{extra}").unlink(missing_ok=True)
+        raise RuntimeError(f"lualatex failed:\n{e.stdout.decode('utf-8')}")
+    else:
+        tex_path.unlink(missing_ok=True)
+    finally:
+        for extra in [".aux", ".log", ".out"]:
+            Path(f"{pdf_name}{extra}").unlink(missing_ok=True)
 
 
 def main():
     try:
-        folder = input("In which folder are the project files?\n")
+        folder = (
+            input("In which folder are the project files? Leave blank for 'projects'\n")
+            or "projects"
+        )
         projects = parse(folder)
         selected_projects = choose_projects(projects)
         template_folder = (
