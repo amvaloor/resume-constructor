@@ -1,47 +1,8 @@
 import subprocess
 from pathlib import Path
 
-import frontmatter
 from jinja2 import Environment, FileSystemLoader, exceptions
-
-
-def sanitize_latex(text):
-    chars = {
-        "&": r"\&",
-        "%": r"\%",
-        "$": r"\$",
-        "#": r"\#",
-        "_": r"\_",
-    }
-    for char, replacement in chars.items():
-        text = text.replace(char, replacement)
-    return text
-
-
-def parse(folder):
-    projects = {}
-    for file in Path(folder).glob("*.md"):
-        try:
-            post = frontmatter.load(file)
-            project = {}
-            name = post["name"]
-            project["name"] = name
-            project["start_date"] = post["start_date"]
-            project["end_date"] = post["end_date"]
-            project["tags"] = post["tags"]
-            raw_lines = post.content.splitlines()
-            bullets = [
-                sanitize_latex(line.lstrip("-*+ ").strip())
-                for line in raw_lines
-                if line.strip()
-            ]
-            project["bullets"] = bullets
-            projects[name] = project
-        except KeyError as e:
-            print(f"File {file} is missing required field: {e}")
-        except Exception as e:
-            print(f"File {file} failed to parse: {e}")
-    return projects
+from parsers import parse
 
 
 def choose_projects(projects):
@@ -73,7 +34,7 @@ def choose_projects(projects):
                 selected_key = keys[idx - 1]
                 if selected_key not in selected_keys:
                     selected_keys.append(keys[idx - 1])
-                    print(f"added {selected_key}")
+                    print(f"Added {selected_key}")
                 else:
                     print(f"{selected_key} already selected")
             else:
