@@ -19,19 +19,19 @@ def sanitize_val(val):
     if isinstance(val, str):
         return sanitize_latex(val)
     if isinstance(val, list):
-        return [sanitize_latex(item) for item in val]
+        return [sanitize_val(item) for item in val]
     if isinstance(val, dict):
-        return {k: sanitize_latex(v) for k, v in val.items()}
+        return {k: sanitize_val(v) for k, v in val.items()}
     return val
 
 
 def parse(folder):
-    activites = {}
+    entries = {}
     for file in Path(folder).glob("*.md"):
         try:
             post = frontmatter.load(file)
-            activity = {k: sanitize_val(v) for k, v in post.metadata.items()}
-            if "name" not in activity:
+            entry = {k: sanitize_val(v) for k, v in post.metadata.items()}
+            if "name" not in entry:
                 raise KeyError
             name = post["name"]
             raw_lines = post.content.splitlines()
@@ -40,10 +40,10 @@ def parse(folder):
                 for line in raw_lines
                 if line.strip()
             ]
-            activity["bullets"] = bullets
-            activites[name] = activity
+            entry["bullets"] = bullets
+            entries[name] = entry
         except KeyError as e:
             print(f"File {file} is missing required field: {e}")
         except Exception as e:
             print(f"File {file} failed to parse: {e}")
-    return activites
+    return entries
