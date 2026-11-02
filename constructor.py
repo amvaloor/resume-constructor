@@ -88,7 +88,7 @@ def compile_to_pdf(latex_string, pdf_name):
     try:
         subprocess.run(
             [
-                "lualatex",
+                "pdflatex",
                 f"-jobname={pdf_name}",
                 "-interaction=nonstopmode",
                 tex_path.name,
@@ -97,7 +97,7 @@ def compile_to_pdf(latex_string, pdf_name):
             capture_output=True,
         )
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"lualatex failed:\n{e.stdout.decode('utf-8')}")
+        raise RuntimeError(f"pdflatex failed:\n{e.stdout.decode('utf-8')}")
     else:
         tex_path.unlink(missing_ok=True)
     finally:
