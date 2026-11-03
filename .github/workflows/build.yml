@@ -1,0 +1,74 @@
+name: Build Cross-Platform Executables
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install customtkinter jinja2 pyinstaller python-frontmatter
+
+      - name: Download OS-Specific Tectonic
+        shell: bash
+        run: |
+          VERSION="0.17.0"
+          URL="https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${VERSION}"
+
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            curl -sL "${URL}/tectonic-${VERSION}-x86_64-unknown-linux-gnu.tar.gz" | tar xz
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            curl -sL "${URL}/tectonic-${VERSION}-x86_64-apple-darwin.tar.gz" | tar xz
+          elif [ "$RUNNER_OS" == "Windows" ]; then
+            curl -sL -o tectonic.zip "${URL}/tectonic-${VERSION}-x86_64-pc-windows-msvc.zip"
+            unzip tectonic.zip
+            rm tectonic.zip
+          fi
+
+      - name: Build Executable with PyInstaller
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            pyinstaller --noconfirm --onefile --windowed --add-binary "tectonic.exe:." --collect-all customtkinter --collect-all frontmatter gui.py
+          else
+            pyinstaller --noconfirm --onefile --windowed --add-binary "tectonic:." --collect-all customtkinter --collect-all frontmatter gui.py
+          fi
+
+      - name: Package Release Asset
+        shell: bash
+        run: |
+          mkdir -p release_assets
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cp dist/gui.exe release_assets/ResumeConstructor-Windows.exe
+          elif [ "$RUNNER_OS" == "macOS" ]; then
+            cp dist/gui release_assets/ResumeConstructor-macOS
+          else
+            cp dist/gui release_assets/ResumeConstructor-Linux
+          fi
+
+      - name: Create Release and Upload Artifacts
+        if: startsWith(github.ref, 'refs/tags')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: release_assets/*

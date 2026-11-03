@@ -1,7 +1,18 @@
 import subprocess
+import sys
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, exceptions
+
+
+def get_tectonic_path():
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        base_path = Path(sys._MEIPASS)
+    else:
+        base_path = Path(__file__).parent
+    binary_name = "tectonic.exe" if sys.platform.startswith("win") else "tectonic"
+
+    return base_path / binary_name
 
 
 def fill_template(template_folder, template_name, data):
@@ -36,13 +47,17 @@ def compile_to_pdf(latex_string, pdf_path, template_dir):
     tex_path = output_dir / f"{output_name}.tex"
     tex_path.write_text(latex_string, encoding="utf-8")
 
+    tectonic_bin = get_tectonic_path()
+
+    if not tectonic_bin.exists():
+        raise RuntimeError(f"Tectonic binary not found at {tectonic_bin}")
+
     try:
         subprocess.run(
             [
-                "pdflatex",
-                f"-output-directory={output_dir}",
-                f"-jobname={output_name}",
-                "-interaction=nonstopmode",
+                str(tectonic_bin),
+                "--outdir",
+                str(output_dir),
                 str(tex_path),
             ],
             cwd=template_dir,
@@ -50,12 +65,9 @@ def compile_to_pdf(latex_string, pdf_path, template_dir):
             capture_output=True,
         )
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"pdflatex failed:\n{e.stdout.decode('utf-8')}")
+        raise RuntimeError(f"Tectonic failed:\n{e.stderr.decode('utf-8')}")
     else:
         tex_path.unlink(missing_ok=True)
-    finally:
-        for extra in [".aux", ".log", ".out"]:
-            (output_dir / f"{output_name}{extra}").unlink(missing_ok=True)
 
 
 def build_resume(template_filepath, output_filepath, data):

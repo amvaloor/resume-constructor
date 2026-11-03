@@ -1,9 +1,10 @@
-import os
 from pathlib import Path
-import customtkinter as ctk
 from tkinter import filedialog
-from parsers import parse
+
+import customtkinter as ctk
+
 from constructor import build_resume
+from parsers import parse
 
 ctk.set_appearance_mode("System")
 
