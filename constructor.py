@@ -26,17 +26,26 @@ def fill_template(template_folder, template_name, data):
         )
 
 
-def compile_to_pdf(latex_string, pdf_name):
-    tex_path = Path(f"{pdf_name}.tex")
+def compile_to_pdf(latex_string, pdf_path, template_dir):
+    output_path = Path(pdf_path)
+    output_dir = output_path.parent
+    output_name = output_path.stem
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    tex_path = output_dir / f"{output_name}.tex"
     tex_path.write_text(latex_string, encoding="utf-8")
+
     try:
         subprocess.run(
             [
                 "pdflatex",
-                f"-jobname={pdf_name}",
+                f"-output-directory={output_dir}",
+                f"-jobname={output_name}",
                 "-interaction=nonstopmode",
-                tex_path.name,
+                str(tex_path),
             ],
+            cwd=template_dir,
             check=True,
             capture_output=True,
         )
@@ -46,4 +55,13 @@ def compile_to_pdf(latex_string, pdf_name):
         tex_path.unlink(missing_ok=True)
     finally:
         for extra in [".aux", ".log", ".out"]:
-            Path(f"{pdf_name}{extra}").unlink(missing_ok=True)
+            (output_dir / f"{output_name}{extra}").unlink(missing_ok=True)
+
+
+def build_resume(template_filepath, output_filepath, data):
+    template_path = Path(template_filepath)
+    output_path = Path(output_filepath)
+
+    latex_string = fill_template(str(template_path.parent), template_path.name, data)
+
+    compile_to_pdf(latex_string, output_path, str(template_path.parent))
